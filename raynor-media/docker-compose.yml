@@ -1,0 +1,183 @@
+# to run: docker-compose run
+#
+# NordVPN creds can be seen in NordVPN account settings, use service account
+version: "2"
+
+services:
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock  
+
+  transmission:
+    image: haugene/transmission-openvpn
+    container_name: transmission-openvpn
+    restart: always
+    ports:
+      - 9091:9091
+    networks:
+      - medianet
+    cap_add:
+      - NET_ADMIN
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York
+      - OPENVPN_PROVIDER=nordvpn
+      - OPENVPN_USERNAME=
+      - OPENVPN_PASSWORD=
+      - OPENVPN_OPTS=--inactive 3600 --ping 10 --ping-exit 60 --dhcp-option DNS 9.9.9.9
+      - NORDVPN_COUNTRY=SE
+      - NORDVPN_CATEGORY=legacy_p2p
+      - NORDVPN_PROTOCOL=tcp
+      - LOCAL_NETWORK=192.168.0.0/16
+      - TRANSMISSION_DOWNLOAD_DIR=/downloads/completed
+      - TRANSMISSION_INCOMPLETE_DIR=/downloads/incomplete
+      - TRANSMISSION_INCOMPLETE_DIR_ENABLED=true
+      - TRANSMISSION_WATCH_DIR_ENABLED=false
+      - TRANSMISSION_WATCH_DIR=/downloads/torrents
+    volumes:
+      - /docker/transmission:/data
+      - cifs_downloads:/downloads
+      - /etc/localtime:/etc/localtime:ro
+
+  radarr:
+    image: linuxserver/radarr:latest
+    container_name: radarr
+    restart: always
+    networks:
+      - medianet
+    volumes:
+      - /docker/radarr-config:/config
+      - cifs_downloads:/downloads
+      - cifs_media:/media
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York
+    ports:
+      - 7878:7878
+
+  sonarr:
+    image: linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: always
+    networks:
+      - medianet
+    volumes:
+      - /docker/sonarr/config:/config
+      - cifs_media:/media
+      - cifs_downloads:/downloads
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York
+    ports:
+      - 8989:8989
+
+  lidarr:
+    image: linuxserver/lidarr:latest
+    container_name: lidarr
+    restart: always
+    volumes:
+      - /docker/lidarr:/config
+      - cifs_media:/media
+      - cifs_downloads:/downloads
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - medianet
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York      
+    ports:
+      - 8686:8686
+
+  readarr:
+    image: linuxserver/readarr:nightly
+    container_name: readarr
+    restart: always
+    volumes:
+      - /docker/readarr:/config
+      - cifs_media:/media
+      - cifs_downloads:/downloads
+      - /etc/localtime:/etc/localtime:ro
+    networks:
+      - medianet
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York
+    ports:
+      - 8787:8787
+  
+  prowlarr:
+    image: linuxserver/prowlarr:latest
+    container_name: prowlarr
+    restart: always
+    volumes:
+      - /docker/prowlarr:/config
+    networks:
+      - medianet
+    environment:
+      - PGID=1000
+      - PUID=1000
+      - TZ=America/New_York
+    ports:
+      - 9696:9696
+
+  kavita:
+    image: linuxserver/kavita:latest
+    container_name: kavita
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /docker/kavita:/config
+      - cifs_media:/data
+      - cifs_downloads:/downloads
+    ports:
+      - 8888:5000
+
+  lubelogger:
+    image: hargata/lubelogger:latest
+    container_name: lubelogger
+    restart: always
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /docker/lubelogger/config:/App/config
+      - /docker/lubelogger/data:/App/data
+      - /docker/lubelogger/documents:/App/wwwroot/documents
+      - /docker/lubelogger/images:/App/wwwroot/images
+      - /docker/lubelogger/temp:/App/wwwroot/temp
+      - /docker/lubelogger/log:/App/log
+      - /docker/lubelogger/keys:/root/.aspnet/DataProtection-Keys
+    ports:
+      - 8080:8080
+    env_file:
+      - lubelogger.env
+
+networks:
+  medianet:
+    driver: bridge
+
+volumes:
+  cifs_downloads:
+    driver: local
+    driver_opts:
+      type: cifs    
+      device: //192.168.100.2/Downloads
+      o: "username=raynorau,password=mXqY9ydyt3CdYr,vers=3.0,uid=1000,gid=1000"
+
+  cifs_media:
+    driver: local
+    driver_opts:
+      type: cifs    
+      device: //192.168.100.2/Media
+      o: "username=raynorau,password=mXqY9ydyt3CdYr,vers=3.0,uid=1000,gid=1000"
